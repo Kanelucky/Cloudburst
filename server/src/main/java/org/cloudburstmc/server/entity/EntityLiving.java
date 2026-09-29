@@ -57,7 +57,6 @@ public abstract class EntityLiving extends CloudEntity implements Living {
     private float lastDamageAmount;
 
     protected boolean invisible;
-    protected float movementSpeed = 0.1f;
     protected int turtleTicks = 200;
 
     public EntityLiving(EntityType<?> type, Location location) {
@@ -531,12 +530,75 @@ public abstract class EntityLiving extends CloudEntity implements Living {
         return new ItemStack[0];
     }
 
-    public void setMovementSpeed(float speed) {
-        this.movementSpeed = speed;
+    public Block[] getLineOfSight(int maxDistance) {
+        return this.getLineOfSight(maxDistance, 0);
     }
 
-    public float getMovementSpeed() {
-        return this.movementSpeed;
+    public Block[] getLineOfSight(int maxDistance, int maxLength) {
+        return this.getLineOfSight(maxDistance, maxLength, new BlockType[0]);
+    }
+
+    public Block[] getLineOfSight(int maxDistance, int maxLength, BlockType[] transparent) {
+        if (maxDistance > 120) {
+            maxDistance = 120;
+        }
+
+        if (transparent != null && transparent.length == 0) {
+            transparent = null;
+        }
+
+        List<Block> blocks = new ArrayList<>();
+
+        Vector3f position = getPosition().add(0, this.getEyeHeight(), 0);
+        for (Vector3i pos : BlockRayTrace.of(position, getDirectionVector(), maxDistance)) {
+            Block block = this.getLevel().getLoadedBlock(pos);
+            if (block == null) {
+                break;
+            }
+            blocks.add(block);
+
+            if (maxLength != 0 && blocks.size() > maxLength) {
+                blocks.remove(0);
+            }
+
+            var id = block.getState().getType();
+
+            if (transparent == null) {
+                if (id != AIR) {
+                    break;
+                }
+            } else {
+                if (Arrays.binarySearch(transparent, id) < 0) {
+                    break;
+                }
+            }
+        }
+
+        return blocks.toArray(new Block[0]);
+    }
+
+    public Block getTargetBlock(int maxDistance) {
+        return getTargetBlock(maxDistance, new BlockType[0]);
+    }
+
+    public Block getTargetBlock(int maxDistance, BlockType[] transparent) {
+        try {
+            Block[] blocks = this.getLineOfSight(maxDistance, 1, transparent);
+            Block block = blocks[0];
+            if (block != null) {
+                if (transparent != null && transparent.length != 0) {
+                    if (Arrays.binarySearch(transparent, block.getState().getType()) < 0) {
+                        return block;
+                    }
+                } else {
+                    return block;
+                }
+            }
+        } catch (Exception ignored) {
+
+        }
+
+        return null;
     }
 
     public int getAirTicks() {
